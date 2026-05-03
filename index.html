@@ -142,7 +142,7 @@
   .join-section { margin-bottom:16px; }
   .join-section p { font-size:.8rem; color:var(--muted); margin-bottom:10px; }
   .join-row { display:flex; gap:8px; }
-  .join-row input { flex:1; }
+  .join-row input { flex:1; min-height:52px; font-size:1.4rem; letter-spacing:6px; text-align:center; padding:12px 16px; }
   .join-btn { padding:0 20px; white-space:nowrap; font-size:.85rem; border-radius:12px; }
 
   .divider { display:flex; align-items:center; gap:12px; margin:16px 0; color:var(--muted); font-size:.75rem; letter-spacing:2px; }
@@ -235,7 +235,8 @@
   .answer-who   { font-size:.65rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
   .pass-item { background:rgba(255,77,109,.08) !important; }
   .pass-item .answer-text { color:var(--muted); font-style:italic; }
-
+  .answer-item.wrong-answer { border-left:3px solid var(--muted); opacity:.7; }
+  .answer-item.wrong-answer .answer-text { text-decoration:line-through; color:var(--muted); }
   .joker-bar { display:flex; gap:8px; padding:8px 20px 12px; }
   .joker-btn { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 8px; color:var(--text); font-family:'Nunito',sans-serif; font-size:.75rem; font-weight:700; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:6px; }
   .joker-btn:hover:not(:disabled) { border-color:var(--gold); color:var(--gold); }
@@ -1070,9 +1071,11 @@ async function submitAnswer() {
     showToast('Bu kelime zaten kullanıldı! ❌', 'error');
     flashInput('error'); input.value=''; return;
   }
-  if (!selectedCat.words.includes(word)) {
+ if (!selectedCat.words.includes(word)) {
     showToast('Geçersiz cevap! ❌', 'error');
-    flashInput('error'); input.value=''; return;
+    flashInput('error');
+    addWrongAnswerToLog(input.value.trim(), currentTurn);
+    input.value=''; return;
   }
 
   usedWords.push(word);
@@ -1128,7 +1131,20 @@ function addAnswerToLog(text, player, isPass) {
   log.appendChild(item);
   log.scrollTop = log.scrollHeight;
 }
-
+function addWrongAnswerToLog(text, player) {
+  const log  = document.getElementById('answers-log');
+  const item = document.createElement('div');
+  const name = player===1 ? p1Name : (gameMode==='ai' ? 'YZ 🤖' : p2Name);
+  item.className = `answer-item p${player}-answer wrong-answer`;
+  item.innerHTML = `
+    <div class="answer-dot"></div>
+    <div class="answer-text">${text}</div>
+    <div class="answer-who">${name}</div>
+    <div class="answer-score" style="color:var(--accent)">✗</div>
+  `;
+  log.appendChild(item);
+  log.scrollTop = log.scrollHeight;
+}
 // ── AI TURN ───────────────────────────────────────────
 async function aiTurn() {
   if (gameOver) return;
