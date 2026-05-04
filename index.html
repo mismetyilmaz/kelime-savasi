@@ -569,7 +569,7 @@ let timerInterval= null;
 let timeLeft     = 30;
 let totalTime    = 30;
 let roundNum     = 0;
-const totalRounds= 6;
+const totalRounds= 8;
 let jokers       = [{ time:2, pass:2, hint:2 }, { time:2, pass:2, hint:2 }];
 let gameOver     = false;
 
@@ -629,15 +629,17 @@ function confirmNames() {
   const v1 = document.getElementById('name-p1').value.trim();
   if (!v1) { showToast('Ad girmelisiniz!', 'error'); return; }
   p1Name = v1;
-  if (gameMode === 'local') {
+ if (gameMode === 'local') {
     const v2 = document.getElementById('name-p2').value.trim();
     if (!v2) { showToast('Oyuncu 2 adı gerekli!', 'error'); return; }
     p2Name = v2;
-    buildCategoryGrid(true);
-    showScreen('category');
+    selectedCat = CATEGORIES[0];
+    initGame();
+    showScreen('game');
   } else if (gameMode === 'ai') {
-    buildCategoryGrid(true);
-    showScreen('category');
+    selectedCat = CATEGORIES[0];
+    initGame();
+    showScreen('game');
   } else {
     // online — go to lobby
     enterLobby();
@@ -785,10 +787,8 @@ function handleRoomUpdate(room) {
 
 async function hostStartGame() {
   if (!amHost) return;
-  await update(roomRef, { status: 'category' });
-  buildCategoryGrid(true);
-  document.getElementById('cat-header-sub').textContent = 'Kategori seç — rakibin bekliyor';
-  showScreen('category');
+  selectedCat = CATEGORIES[0];
+  await update(roomRef, { catId: CATEGORIES[0].id, status: 'playing' });
 }
 window.hostStartGame = hostStartGame;
 
@@ -914,7 +914,16 @@ function syncGameFromRoom(room) {
     roundNum = room.round;
     buildRoundDots();
   }
-
+// Sync category
+  if (room.catId) {
+    const newCat = CATEGORIES.find(c => c.id === room.catId);
+    if (newCat && (!selectedCat || newCat.id !== selectedCat.id)) {
+      selectedCat = newCat;
+      usedWords = [];
+      document.getElementById('banner-cat').textContent = selectedCat.name + ' ' + selectedCat.emoji;
+      document.getElementById('banner-q').textContent   = selectedCat.question;
+    }
+  }
   // Sync turn
   const prevTurn = currentTurn;
   currentTurn = room.turn || 1;
@@ -922,7 +931,7 @@ function syncGameFromRoom(room) {
     updateTurnBanner();
     updateJokerUI();
     // reset timer on turn change
-    startTimer(30);
+    startTimer(20);
   }
 
   // Sync jokers
@@ -958,7 +967,7 @@ function startRound() {
   document.getElementById('answers-log').innerHTML = '';
   currentTurn = (roundNum % 2 === 0) ? 1 : 2;
   updateTurnBanner();
-  startTimer(30);
+  startTimer(20);
 
   if (gameMode === 'online') {
     const myTurnNum = amHost ? 1 : 2;
@@ -1048,13 +1057,16 @@ async function onTimeUp() {
   }
 
   roundNum++;
-  setTimeout(() => {
+ setTimeout(() => {
     hideOverlay('roundover');
     if (roundNum >= totalRounds) {
       if (gameMode !== 'online') endGame();
-      // online: listener will call finalizeOnlineGame
     } else {
-      if (gameMode !== 'online') startRound();
+      if (gameMode !== 'online') {
+        selectedCat = CATEGORIES[roundNum]; // sonraki kategori
+        usedWords = [];
+        startRound();
+      }
     }
   }, 2000);
 }
@@ -1078,8 +1090,9 @@ async function submitAnswer() {
     const wrongWord = input.value.trim();
     addWrongAnswerToLog(wrongWord, currentTurn);
     input.value='';
-    if (gameMode === 'online') {
+   if (gameMode === 'online') {
       const wrongAnswer = { player: currentTurn, word: wrongWord, pass: false, wrong: true };
+      roundAnswers.push(wrongAnswer); // sync gelince tekrar eklenmesini engelle
       const answerPush = push(ref(db, 'rooms/' + roomCode + '/answers'));
       set(answerPush, wrongAnswer);
     }
