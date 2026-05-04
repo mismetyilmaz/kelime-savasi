@@ -943,11 +943,12 @@ function syncGameFromRoom(room) {
     updateJokerUI();
     startTimer(20);
   }
-
-  // ── TimeLeft sync (joker +10s) ──
-  if (room.timeLeft && room.timeLeft > timeLeft && currentTurn === (amHost ? 1 : 2)) {
+// ── Input kontrolü ──
+  const myTurnNum = amHost ? 1 : 2;
+ if (currentTurn !== myTurnNum && room.timeLeft != null) {
+    // Sıra rakipte, onun timeLeft'ini ekrana yansıt
     timeLeft  = room.timeLeft;
-    totalTime = Math.max(totalTime, timeLeft);
+    totalTime = 20;
     updateTimerUI();
   }
   // ── Jokers ── (sadece rakibin jokerlerini sync et, kendininkini lokal tut)
@@ -968,8 +969,7 @@ function syncGameFromRoom(room) {
     ];
   }
 
-  // ── Input kontrolü ──
-  const myTurnNum = amHost ? 1 : 2;
+  
   if (currentTurn === myTurnNum) enableInput();
   else disableInput();
 }
@@ -1038,9 +1038,21 @@ function startTimer(seconds) {
   timeLeft  = seconds;
   totalTime = seconds;
   updateTimerUI();
-  timerInterval = setInterval(() => {
+
+  // Online modda: sadece sırası olan kişi timer'ı çalıştırır
+  // Diğer kişi syncGameFromRoom üzerinden timeLeft'i izler
+  if (gameMode === 'online') {
+    const myTurnNum = amHost ? 1 : 2;
+    if (currentTurn !== myTurnNum) return; // sıra bende değil, timer çalıştırma
+  }
+
+  timerInterval = setInterval(async () => {
     timeLeft--;
     updateTimerUI();
+    // Online'da her saniye Firebase'e yaz ki rakip görsün
+    if (gameMode === 'online') {
+      await update(roomRef, { timeLeft: timeLeft });
+    }
     if (timeLeft <= 0) { clearInterval(timerInterval); timerInterval = null; onTimeUp(); }
   }, 1000);
 }
@@ -1084,6 +1096,7 @@ async function onTimeUp() {
       turn:        newTurn,
       catId:       nextCat,
       roundHistory: roundHistory,
+      timeLeft:     20,          // ← bunu ekle
       'scores/p1': scores[0],
       'scores/p2': scores[1],
       answers:     [],
@@ -1151,6 +1164,7 @@ async function submitAnswer() {
       set(answerPush, answer),
       update(roomRef, {
         turn:      nextTurn,
+        timeLeft:  20,          // ← bunu ekle
         usedWords: usedWords,
       })
     ]);
@@ -1263,9 +1277,9 @@ async function useJokerPass() {
     const nextTurn = currentTurn===1 ? 2 : 1;
     const answerPush = push(ref(db,'rooms/'+roomCode+'/answers'));
     disableInput();
-    await Promise.all([
+   await Promise.all([
       set(answerPush, answer),
-      update(roomRef, { turn: nextTurn }),
+      update(roomRef, { turn: nextTurn, timeLeft: 20 }),   // ← timeLeft: 20 ekle
       update(ref(db,'rooms/'+roomCode+'/jokers/'+(amHost?'p1':'p2')), { pass: jokers[p].pass }),
     ]);
   
