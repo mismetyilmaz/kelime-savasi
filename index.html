@@ -569,6 +569,7 @@ let timerInterval= null;
 let timeLeft     = 30;
 let totalTime    = 30;
 let roundNum     = 0;
+let roundHistory = []; // her round { winner: 1|2 } saklar
 const totalRounds= 8;
 let jokers       = [{ time:2, pass:2, hint:2 }, { time:2, pass:2, hint:2 }];
 let gameOver     = false;
@@ -909,9 +910,11 @@ function syncGameFromRoom(room) {
     });
   }
 
-  // Sync round
+  
+ // Sync round
   if (room.round !== roundNum) {
     roundNum = room.round;
+    if (room.roundHistory) roundHistory = Object.values(room.roundHistory);
     buildRoundDots();
   }
 // Sync category
@@ -988,13 +991,17 @@ function buildRoundDots() {
   c.innerHTML = '';
   for (let i = 0; i < totalRounds; i++) {
     const d = document.createElement('div');
-    d.className = 'round-dot' + (i === roundNum ? ' current' : '');
+    if (roundHistory[i]) {
+      d.className = 'round-dot ' + (roundHistory[i]===1 ? 'done-p1' : 'done-p2');
+    } else {
+      d.className = 'round-dot' + (i === roundNum ? ' current' : '');
+    }
     d.id = 'dot-' + i;
     c.appendChild(d);
   }
 }
-
 function updateRoundDot(round, winner) {
+  roundHistory[round] = winner;
   const d = document.getElementById('dot-' + round);
   if (d) { d.classList.remove('current'); d.classList.add(winner===1?'done-p1':'done-p2'); }
   const n = document.getElementById('dot-' + (round+1));
@@ -1027,8 +1034,8 @@ function updateTimerUI() {
 
 async function onTimeUp() {
   disableInput();
-  const p1c = roundAnswers.filter(a => a.player===1 && !a.pass).length;
-  const p2c = roundAnswers.filter(a => a.player===2 && !a.pass).length;
+  const p1c = roundAnswers.filter(a => a.player===1 && !a.pass && !a.wrong).length;
+  const p2c = roundAnswers.filter(a => a.player===2 && !a.pass && !a.wrong).length;
   const winner = p1c >= p2c ? 1 : 2;
 
   scores[0] += p1c;
@@ -1046,14 +1053,17 @@ async function onTimeUp() {
   if (gameMode === 'online' && amHost) {
     const nextRound = roundNum + 1;
     const newTurn   = (nextRound % 2 === 0) ? 1 : 2;
+    const nextCat = CATEGORIES[nextRound] ? CATEGORIES[nextRound].id : null;
     await update(roomRef, {
-      round:     nextRound,
-      turn:      newTurn,
+      round:       nextRound,
+      turn:        newTurn,
+      catId:       nextCat,
+      roundHistory: roundHistory,
       'scores/p1': scores[0],
       'scores/p2': scores[1],
-      answers:   [],
-      usedWords: usedWords,
-      status:    nextRound >= totalRounds ? 'done' : 'playing',
+      answers:     [],
+      usedWords:   [],
+      status:      nextRound >= totalRounds ? 'done' : 'playing',
     });
   }
 
