@@ -935,6 +935,7 @@ function syncGameFromRoom(room) {
   }
 
   // ── Turn ── (timer sadece yeni round başında başlar, turn değişiminde başlamaz)
+
   const prevTurn = currentTurn;
   currentTurn = room.turn || 1;
   if (currentTurn !== prevTurn) {
@@ -943,6 +944,12 @@ function syncGameFromRoom(room) {
     startTimer(20);
   }
 
+  // ── TimeLeft sync (joker +10s) ──
+  if (room.timeLeft && room.timeLeft > timeLeft && currentTurn === (amHost ? 1 : 2)) {
+    timeLeft  = room.timeLeft;
+    totalTime = Math.max(totalTime, timeLeft);
+    updateTimerUI();
+  }
   // ── Jokers ── (sadece rakibin jokerlerini sync et, kendininkini lokal tut)
   if (gameMode === 'online') {
     const enemyIdx = amHost ? 1 : 0;
@@ -1233,7 +1240,12 @@ async function useJokerTime() {
   totalTime = Math.max(totalTime, timeLeft);
   updateTimerUI(); updateJokerUI();
   showToast('+10 saniye eklendi! ⏱', 'success');
-  if (gameMode==='online') await update(ref(db,'rooms/'+roomCode+'/jokers/'+(amHost?'p1':'p2')), { time: jokers[p].time });
+  if (gameMode==='online') {
+    await update(roomRef, {
+      ['jokers/' + (amHost?'p1':'p2') + '/time']: jokers[p].time,
+      timeLeft: timeLeft,
+    });
+  }
 }
 window.useJokerTime = useJokerTime;
 
