@@ -940,6 +940,7 @@ function syncGameFromRoom(room) {
   if (currentTurn !== prevTurn) {
     updateTurnBanner();
     updateJokerUI();
+    startTimer(20);
   }
 
   // ── Jokers ── (sadece rakibin jokerlerini sync et, kendininkini lokal tut)
