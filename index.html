@@ -566,8 +566,8 @@ let scores       = [0, 0];
 let usedWords    = [];
 let roundAnswers = [];
 let timerInterval= null;
-let timeLeft     = 30;
-let totalTime    = 30;
+let timeLeft     = 20;
+let totalTime    = 20;
 let roundNum     = 0;
 let roundHistory = []; // her round { winner: 1|2 } saklar
 const totalRounds= 8;
@@ -942,11 +942,23 @@ function syncGameFromRoom(room) {
     updateJokerUI();
   }
 
-  // ── Jokers ──
-  jokers = [
-    { time: room.jokers?.p1?.time??2, pass: room.jokers?.p1?.pass??2, hint: room.jokers?.p1?.hint??2 },
-    { time: room.jokers?.p2?.time??2, pass: room.jokers?.p2?.pass??2, hint: room.jokers?.p2?.hint??2 },
-  ];
+  // ── Jokers ── (sadece rakibin jokerlerini sync et, kendininkini lokal tut)
+  if (gameMode === 'online') {
+    const enemyIdx = amHost ? 1 : 0;
+    const enemyKey = amHost ? 'p2' : 'p1';
+    if (room.jokers?.[enemyKey]) {
+      jokers[enemyIdx] = {
+        time: room.jokers[enemyKey].time ?? 2,
+        pass: room.jokers[enemyKey].pass ?? 2,
+        hint: room.jokers[enemyKey].hint ?? 2,
+      };
+    }
+  } else {
+    jokers = [
+      { time: room.jokers?.p1?.time??2, pass: room.jokers?.p1?.pass??2, hint: room.jokers?.p1?.hint??2 },
+      { time: room.jokers?.p2?.time??2, pass: room.jokers?.p2?.pass??2, hint: room.jokers?.p2?.hint??2 },
+    ];
+  }
 
   // ── Input kontrolü ──
   const myTurnNum = amHost ? 1 : 2;
@@ -1014,13 +1026,14 @@ function updateRoundDot(round, winner) {
 // ── TIMER ────────────────────────────────────────────
 function startTimer(seconds) {
   clearInterval(timerInterval);
+  timerInterval = null;
   timeLeft  = seconds;
   totalTime = seconds;
   updateTimerUI();
   timerInterval = setInterval(() => {
     timeLeft--;
     updateTimerUI();
-    if (timeLeft <= 0) { clearInterval(timerInterval); onTimeUp(); }
+    if (timeLeft <= 0) { clearInterval(timerInterval); timerInterval = null; onTimeUp(); }
   }, 1000);
 }
 
@@ -1265,10 +1278,14 @@ function useJokerHint() {
 window.useJokerHint = useJokerHint;
 
 function updateJokerUI() {
-  const p = currentTurn-1;
+  const p = currentTurn - 1;
+  const myTurnNum = gameMode === 'online' ? (amHost ? 1 : 2) : currentTurn;
+  const isMyTurn  = (gameMode === 'online') ? (currentTurn === myTurnNum) : true;
+
   ['time','pass','hint'].forEach(k => {
-    document.getElementById('joker-'+k+'-count').textContent = jokers[p][k];
-    document.getElementById('joker-'+k).disabled = jokers[p][k]<=0;
+    const btn = document.getElementById('joker-' + k);
+    document.getElementById('joker-' + k + '-count').textContent = jokers[p][k];
+    btn.disabled = jokers[p][k] <= 0 || !isMyTurn;
   });
 }
 
