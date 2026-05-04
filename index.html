@@ -890,7 +890,9 @@ function initGameFromRoom(room) {
 }
 
 function syncGameFromRoom(room) {
-  // Update scores
+  if (gameOver) return;
+
+  // ── Scores ──
   const newScores = [room.scores.p1 || 0, room.scores.p2 || 0];
   if (newScores[0] !== scores[0] || newScores[1] !== scores[1]) {
     scores = newScores;
@@ -898,26 +900,18 @@ function syncGameFromRoom(room) {
     document.getElementById('score-p2').textContent = scores[1];
   }
 
-  // Sync answers
-  const remoteAnswers = room.answers ? Object.values(room.answers) : [];
-  if (remoteAnswers.length > roundAnswers.length) {
-    const newOnes = remoteAnswers.slice(roundAnswers.length);
-   newOnes.forEach(a => {
-      roundAnswers.push(a);
-      if (a.word) usedWords.push(a.word);
-      if (a.wrong) addWrongAnswerToLog(a.word, a.player);
-      else addAnswerToLog(a.word, a.player, a.pass);
-    });
-  }
-
-  
- // Sync round
+  // ── Round geçişi ──
   if (room.round !== roundNum) {
     roundNum = room.round;
     if (room.roundHistory) roundHistory = Object.values(room.roundHistory);
     buildRoundDots();
+    // Yeni round başlıyor — log temizle, answers sıfırla
+    roundAnswers = [];
+    usedWords = room.usedWords ? Object.values(room.usedWords) : [];
+    document.getElementById('answers-log').innerHTML = '';
   }
-// Sync category
+
+  // ── Kategori ──
   if (room.catId) {
     const newCat = CATEGORIES.find(c => c.id === room.catId);
     if (newCat && (!selectedCat || newCat.id !== selectedCat.id)) {
@@ -927,27 +921,37 @@ function syncGameFromRoom(room) {
       document.getElementById('banner-q').textContent   = selectedCat.question;
     }
   }
-  // Sync turn
+
+  // ── Cevaplar (sadece yeni gelenleri ekle) ──
+  const remoteAnswers = room.answers ? Object.values(room.answers) : [];
+  if (remoteAnswers.length > roundAnswers.length) {
+    const newOnes = remoteAnswers.slice(roundAnswers.length);
+    newOnes.forEach(a => {
+      roundAnswers.push(a);
+      if (a.word && !a.wrong) usedWords.push(normWord(a.word));
+      if (a.wrong) addWrongAnswerToLog(a.word, a.player);
+      else addAnswerToLog(a.word, a.player, a.pass);
+    });
+  }
+
+  // ── Turn ── (timer sadece yeni round başında başlar, turn değişiminde başlamaz)
   const prevTurn = currentTurn;
   currentTurn = room.turn || 1;
   if (currentTurn !== prevTurn) {
     updateTurnBanner();
     updateJokerUI();
-    // reset timer on turn change
-    startTimer(20);
   }
 
-  // Sync jokers
+  // ── Jokers ──
   jokers = [
     { time: room.jokers?.p1?.time??2, pass: room.jokers?.p1?.pass??2, hint: room.jokers?.p1?.hint??2 },
     { time: room.jokers?.p2?.time??2, pass: room.jokers?.p2?.pass??2, hint: room.jokers?.p2?.hint??2 },
   ];
 
+  // ── Input kontrolü ──
   const myTurnNum = amHost ? 1 : 2;
   if (currentTurn === myTurnNum) enableInput();
   else disableInput();
-
-  hideOverlay('waiting');
 }
 
 function setupGameUI() {
@@ -968,11 +972,11 @@ function setupGameUI() {
 function startRound() {
   roundAnswers = [];
   document.getElementById('answers-log').innerHTML = '';
-  currentTurn = (roundNum % 2 === 0) ? 1 : 2;
   updateTurnBanner();
   startTimer(20);
   document.getElementById('banner-cat').textContent = selectedCat.name + ' ' + selectedCat.emoji;
   document.getElementById('banner-q').textContent   = selectedCat.question;
+
   if (gameMode === 'online') {
     const myTurnNum = amHost ? 1 : 2;
     if (currentTurn === myTurnNum) enableInput();
@@ -985,7 +989,6 @@ function startRound() {
   }
   updateJokerUI();
 }
-
 function buildRoundDots() {
   const c = document.getElementById('round-dots');
   c.innerHTML = '';
@@ -1036,8 +1039,9 @@ async function onTimeUp() {
   disableInput();
   const p1c = roundAnswers.filter(a => a.player===1 && !a.pass && !a.wrong).length;
   const p2c = roundAnswers.filter(a => a.player===2 && !a.pass && !a.wrong).length;
-  const winner = p1c >= p2c ? 1 : 2;
-
+  // Süre kimin sırasındayken bitti? O kişi kaybeder
+  const loser  = currentTurn;
+  const winner = loser === 1 ? 2 : 1;
   scores[0] += p1c;
   scores[1] += p2c;
   updateRoundDot(roundNum, winner);
