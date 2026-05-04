@@ -1077,8 +1077,6 @@ function updateTimerUI() {
 }
 
 async function onTimeUp() {
-  // Online modda round bitişini sadece host yönetir
-  if (gameMode === 'online' && !amHost) return;
   disableInput();
   const p1c = roundAnswers.filter(a => a.player===1 && !a.pass && !a.wrong).length;
   const p2c = roundAnswers.filter(a => a.player===2 && !a.pass && !a.wrong).length;
@@ -1097,7 +1095,7 @@ async function onTimeUp() {
   document.getElementById('ov-round-sub').textContent   = p1c + ' vs ' + p2c + ' kelime';
   showOverlay('roundover');
 
-  if (gameMode === 'online' && amHost) {
+  if (gameMode === 'online') {
     const nextRound = roundNum + 1;
     const newTurn   = (nextRound % 2 === 0) ? 1 : 2;
     const nextCat = CATEGORIES[nextRound] ? CATEGORIES[nextRound].id : null;
