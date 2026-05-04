@@ -907,9 +907,17 @@ function syncGameFromRoom(room) {
     if (room.roundHistory) roundHistory = Object.values(room.roundHistory);
     buildRoundDots();
     roundAnswers = [];
-    usedWords = room.usedWords ? Object.values(room.usedWords) : [];
+    usedWords = [];
     document.getElementById('answers-log').innerHTML = '';
-    startTimer(20); // ← yeni round, timer sıfırla
+    hideOverlay('roundover');
+    currentTurn = room.turn || 1;
+    updateTurnBanner();
+    updateJokerUI();
+    startTimer(20);
+    const myTurnNum = amHost ? 1 : 2;
+    if (currentTurn === myTurnNum) enableInput();
+    else disableInput();
+    return; // geri kalan sync'e gerek yok, round baştan kuruluyor
   }
   // ── Kategori ──
   if (room.catId) {
@@ -1069,6 +1077,8 @@ function updateTimerUI() {
 }
 
 async function onTimeUp() {
+  // Online modda round bitişini sadece host yönetir
+  if (gameMode === 'online' && !amHost) return;
   disableInput();
   const p1c = roundAnswers.filter(a => a.player===1 && !a.pass && !a.wrong).length;
   const p2c = roundAnswers.filter(a => a.player===2 && !a.pass && !a.wrong).length;
