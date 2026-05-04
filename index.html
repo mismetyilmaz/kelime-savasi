@@ -887,6 +887,7 @@ function initGameFromRoom(room) {
   const myTurnNum = amHost ? 1 : 2;
   if (currentTurn === myTurnNum) enableInput();
   else { disableInput(); }
+  startTimer(20); // ← bunu ekle
 }
 
 function syncGameFromRoom(room) {
@@ -900,17 +901,16 @@ function syncGameFromRoom(room) {
     document.getElementById('score-p2').textContent = scores[1];
   }
 
-  // ── Round geçişi ──
+ // ── Round geçişi ──
   if (room.round !== roundNum) {
     roundNum = room.round;
     if (room.roundHistory) roundHistory = Object.values(room.roundHistory);
     buildRoundDots();
-    // Yeni round başlıyor — log temizle, answers sıfırla
     roundAnswers = [];
     usedWords = room.usedWords ? Object.values(room.usedWords) : [];
     document.getElementById('answers-log').innerHTML = '';
+    startTimer(20); // ← yeni round, timer sıfırla
   }
-
   // ── Kategori ──
   if (room.catId) {
     const newCat = CATEGORIES.find(c => c.id === room.catId);
