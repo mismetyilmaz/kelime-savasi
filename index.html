@@ -968,7 +968,8 @@ function startRound() {
   currentTurn = (roundNum % 2 === 0) ? 1 : 2;
   updateTurnBanner();
   startTimer(20);
-
+  document.getElementById('banner-cat').textContent = selectedCat.name + ' ' + selectedCat.emoji;
+  document.getElementById('banner-q').textContent   = selectedCat.question;
   if (gameMode === 'online') {
     const myTurnNum = amHost ? 1 : 2;
     if (currentTurn === myTurnNum) enableInput();
